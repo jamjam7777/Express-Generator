@@ -7,38 +7,54 @@ const favoriteRouter = express.Router();
 
 favoriteRouter.route('/')
 .options(cors.corsWithOptions, (req, res) => res.sendStatus(200))
-.get(cors.cors, (req, res, next) => {
+.get(cors.cors, authenticate.verifyUser, (req, res, next) => {
     Favorite.find( { user: req.user._id } )
-    .populate('campsites', 'user')
-    .then(favorites => {
+    .populate('user')
+    .populate('campsites')
+    .then(favorite => {
         res.statusCode = 200;
         res.setHeader('Content-Type', 'application/json');
-        res.json(favorites);
+        res.json(favorite);
     })
     .catch(err => next(err));
 })
 
-.post(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res, next) => {
+.post(cors.corsWithOptions, authenticate.verifyUser, (req, res, next) => {
     Favorite.findOne({user: req.user._id })
     .then(favorite => {
         if (favorite) {
-            req.user._id.includes
-            
-            .then(favorite => {
-            err = new Error ("That campsite is already in the list of favorites!") ;
-            err.status = 404;
-            return next(err);
-            })
-            .catch(err => next(err));
-        } else {
-            favorite.comments.push(req.body);
-            favorite.save()
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'application/json');
-            res.json(favorite);
+            req.body.forEach(fave => {
+                if (!favorite.campsites.includes(fave._id)) {
+                    favorite.campsites.push(fave._id);
                 }
+            });
+            favorite
+                .save()
+                .then(favorite => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(favorite);
+                })
+                .catch(err => next(err))
+            } else {
+                Favorite.create({user: req.user._id })
+                .then(favorite => {
+                    req.body.forEach(fave => {
+                    favorite.campsites.push(fave._id);
+                });
+                favorite 
+                .save()
+                .then(favorite => {
+                    res.statusCode = 200;
+                    res.setHeader('Content-Type', 'application/json');
+                    res.json(favorite);
+                })
+                .catch(err => next(err)); 
             })
-    .catch(err => next(err));
+        .catch(err => next(err));
+            }
+    })
+    .catch(err => next(err));       
 })
 
 .put(cors.corsWithOptions, authenticate.verifyUser, authenticate.verifyAdmin, (req, res) => {
